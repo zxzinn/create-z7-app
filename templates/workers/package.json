@@ -4,14 +4,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch example.worker.ts",
-    "start": "tsx example.worker.ts"
+    "dev": "tsx watch --env-file=.env example.worker.ts",
+    "start": "tsx --env-file=.env example.worker.ts"
   },
   "dependencies": {
     "@sentry/node": "^9.27.0",
     "{{scope}}/db": "workspace:*",
     "{{scope}}/shared": "workspace:*",
-    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "ioredis": "^5.9.1",
     "pino": "^9.6.0",

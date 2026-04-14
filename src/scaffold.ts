@@ -36,8 +36,10 @@ export async function scaffold(options: ScaffoldOptions) {
     copyTemplate(path.join(templatesDir, 'workers'), path.join(targetDir, 'workers'), options)
   }
 
-  if (features.includes('docker')) {
-    copyTemplate(path.join(templatesDir, 'docker'), path.join(targetDir, 'docker'), options)
+  // Make start-docker.sh executable
+  const startDockerPath = path.join(targetDir, 'start-docker.sh')
+  if (fs.existsSync(startDockerPath)) {
+    fs.chmodSync(startDockerPath, 0o755)
   }
 
   // Initialize git (commit happens later in CLI after install)

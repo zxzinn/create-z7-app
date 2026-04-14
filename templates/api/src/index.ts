@@ -7,7 +7,6 @@ import { rpc } from './routes/rpc'
 import { storage } from './routes/storage'
 import { setupWebSocket } from './routes/ws'
 import { logger } from './utils/logger'
-import 'dotenv/config'
 
 // Sentry
 if (process.env.SENTRY_DSN) {

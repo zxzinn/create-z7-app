@@ -43,7 +43,6 @@ async function main() {
     process.exit(0)
   }
 
-  // Ask each feature individually like t3
   const useWorkers = await p.confirm({
     message: 'Would you like to use Background Workers?',
     initialValue: true,
@@ -62,12 +61,6 @@ async function main() {
   })
   if (p.isCancel(useS3)) { p.cancel('Cancelled.'); process.exit(0) }
 
-  const useDocker = await p.confirm({
-    message: 'Would you like to include Docker setup?',
-    initialValue: true,
-  })
-  if (p.isCancel(useDocker)) { p.cancel('Cancelled.'); process.exit(0) }
-
   const shouldInstall = await p.confirm({
     message: `Should we run ${pc.cyan("'pnpm install'")} for you?`,
     initialValue: true,
@@ -85,7 +78,6 @@ async function main() {
   if (useWorkers) features.push('workers')
   if (useWebSocket) features.push('websocket')
   if (useS3) features.push('s3')
-  if (useDocker) features.push('docker')
 
   // Scaffold
   const s = p.spinner()
@@ -112,7 +104,6 @@ async function main() {
   if (useWorkers) allFeatures.push('RabbitMQ Workers')
   if (useWebSocket) allFeatures.push('WebSocket')
   if (useS3) allFeatures.push('S3 Storage')
-  if (useDocker) allFeatures.push('Docker')
   for (const f of allFeatures) {
     p.log.step(`${pc.green('✔')} Successfully setup boilerplate for ${pc.cyan(f)}`)
   }
@@ -162,8 +153,7 @@ async function main() {
   // Next steps
   const steps = [`cd ${projectName}`]
   if (!shouldInstall) steps.push('pnpm install')
-  steps.push('cp .env.example .env')
-  if (useDocker) steps.push("docker compose -f docker/docker-compose.yml up -d  # start services")
+  steps.push("Start up your infrastructure, if needed using './start-docker.sh'")
   steps.push('pnpm db:generate')
   steps.push('pnpm db:migrate')
   steps.push('pnpm dev')

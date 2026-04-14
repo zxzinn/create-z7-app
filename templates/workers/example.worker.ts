@@ -1,6 +1,5 @@
-import 'dotenv/config'
-import * as schema from '{{scope}}/db/schema'
 import * as Sentry from '@sentry/node'
+import * as schema from '{{scope}}/db/schema'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import pino from 'pino'
 import postgres from 'postgres'
