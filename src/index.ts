@@ -121,6 +121,10 @@ async function main() {
       execSync('pnpm --filter frontend generate-routes', { cwd: targetDir, stdio: 'ignore' })
       p.log.step(`${pc.green('✔')} Generated route tree`)
 
+      // Auto-format all generated code
+      execSync('pnpm lint:fix', { cwd: targetDir, stdio: 'ignore' })
+      p.log.step(`${pc.green('✔')} Formatted project`)
+
       // Acknowledge known warnings
       p.log.info(pc.dim([
         '',
