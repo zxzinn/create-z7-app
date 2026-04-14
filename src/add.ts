@@ -11,6 +11,7 @@ export const ADDABLE_FEATURES: Feature[] = [
   { name: 'redis', description: 'Redis client (ioredis)' },
   { name: 'rabbitmq', description: 'RabbitMQ + worker template (rabbitmq-client)' },
   { name: 's3', description: 'S3-compatible storage (SeaweedFS / MinIO)' },
+  { name: 'websocket', description: 'WebSocket (Redis pub/sub)' },
 ]
 
 function readJson(filePath: string): any {
@@ -22,17 +23,17 @@ function writeJson(filePath: string, data: any): void {
 }
 
 function addDeps(pkgPath: string, deps: Record<string, string>, dev = false): void {
+  if (!fs.existsSync(pkgPath)) return
   const pkg = readJson(pkgPath)
   const key = dev ? 'devDependencies' : 'dependencies'
   pkg[key] = { ...pkg[key], ...deps }
-  // Sort keys
   pkg[key] = Object.fromEntries(Object.entries(pkg[key] as Record<string, string>).sort(([a], [b]) => a.localeCompare(b)))
   writeJson(pkgPath, pkg)
 }
 
 function appendEnv(envPath: string, lines: string[]): void {
   const existing = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
-  const toAdd = lines.filter(line => {
+  const toAdd = lines.filter((line) => {
     const key = line.split('=')[0]
     return key && !existing.includes(key)
   })
@@ -40,6 +41,21 @@ function appendEnv(envPath: string, lines: string[]): void {
     const content = existing.endsWith('\n') ? existing : `${existing}\n`
     fs.writeFileSync(envPath, `${content}\n${toAdd.join('\n')}\n`)
   }
+}
+
+function addEnvToConfig(fields: string[]): void {
+  const configPath = 'apps/api/src/config.ts'
+  if (!fs.existsSync(configPath)) return
+  let content = fs.readFileSync(configPath, 'utf-8')
+  for (const field of fields) {
+    if (!content.includes(field.split(':')[0]!.trim())) {
+      content = content.replace(
+        /(\n)(  NODE_ENV:)/,
+        `\n  ${field}\n$2`,
+      )
+    }
+  }
+  fs.writeFileSync(configPath, content)
 }
 
 function ensureDir(dir: string): void {
@@ -55,7 +71,6 @@ function writeIfNotExists(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content)
 }
 
-// Detect the scope from root package.json or packages/*/package.json
 function detectScope(): string {
   const pkgs = ['packages/db/package.json', 'packages/shared/package.json']
   for (const p of pkgs) {
@@ -77,38 +92,30 @@ export async function addFeature(name: string): Promise<void> {
     case 'postgres':
       return addPostgres(scope)
     case 'redis':
-      return addRedis(scope)
+      return addRedis()
     case 'rabbitmq':
       return addRabbitmq(scope)
     case 's3':
       return addS3(scope)
+    case 'websocket':
+      return addWebSocket()
     default:
       throw new Error(`Unknown feature: ${name}`)
   }
 }
 
 function addPostgres(scope: string): void {
-  // packages/db
   ensureDir('packages/db/src')
 
-  writeIfNotExists('packages/db/package.json', JSON.stringify({
+  writeIfNotExists('packages/db/package.json', `${JSON.stringify({
     name: `${scope}/db`,
     type: 'module',
     version: '0.0.0',
     private: true,
-    exports: {
-      '.': './src/index.ts',
-      './schema': './src/schema.ts',
-    },
-    dependencies: {
-      'drizzle-orm': '^0.45.1',
-      'postgres': '^3.4.8',
-    },
-    devDependencies: {
-      '@types/node': '^22.15.0',
-      'drizzle-kit': '^0.31.8',
-    },
-  }, null, 2))
+    exports: { '.': './src/index.ts', './schema': './src/schema.ts' },
+    dependencies: { 'drizzle-orm': '^0.45.1', 'postgres': '^3.4.8' },
+    devDependencies: { '@types/node': '^22.15.0', 'drizzle-kit': '^0.31.8' },
+  }, null, 2)}\n`)
 
   writeIfNotExists('packages/db/src/schema.ts', `import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
@@ -139,7 +146,7 @@ export default defineConfig({
 })
 `)
 
-  writeIfNotExists('packages/db/tsconfig.json', JSON.stringify({
+  writeIfNotExists('packages/db/tsconfig.json', `${JSON.stringify({
     compilerOptions: {
       target: 'ESNext',
       module: 'ESNext',
@@ -151,9 +158,8 @@ export default defineConfig({
       skipLibCheck: true,
     },
     include: ['src/**/*.ts', 'drizzle.config.ts'],
-  }, null, 2))
+  }, null, 2)}\n`)
 
-  // apps/api/src/utils/db.ts
   writeIfNotExists('apps/api/src/utils/db.ts', `import * as schema from '${scope}/db/schema'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
@@ -163,26 +169,34 @@ const client = postgres(env.DATABASE_URL)
 export const db = drizzle(client, { schema })
 `)
 
-  // Add deps to api
-  if (fs.existsSync('apps/api/package.json')) {
-    addDeps('apps/api/package.json', {
-      [`${scope}/db`]: 'workspace:*',
-      'drizzle-orm': '^0.45.1',
-      'postgres': '^3.4.8',
-    })
-  }
+  addDeps('apps/api/package.json', {
+    [`${scope}/db`]: 'workspace:*',
+    'drizzle-orm': '^0.45.1',
+    'postgres': '^3.4.8',
+  })
 
-  // Add drizzle-kit to root
+  addDeps('package.json', { 'drizzle-kit': '^0.31.8' }, true)
+
+  // Add db scripts to root package.json
   if (fs.existsSync('package.json')) {
-    addDeps('package.json', { 'drizzle-kit': '^0.31.8' }, true)
+    const pkg = readJson('package.json')
+    pkg.scripts = pkg.scripts || {}
+    if (!pkg.scripts['db:generate']) {
+      pkg.scripts['db:generate'] = 'drizzle-kit generate --config packages/db/drizzle.config.ts'
+      pkg.scripts['db:migrate'] = 'drizzle-kit migrate --config packages/db/drizzle.config.ts'
+      pkg.scripts['db:push'] = 'drizzle-kit push --config packages/db/drizzle.config.ts'
+      pkg.scripts['db:studio'] = 'drizzle-kit studio --config packages/db/drizzle.config.ts'
+      writeJson('package.json', pkg)
+    }
   }
 
-  // .env
+  addEnvToConfig(["DATABASE_URL: z.string().url(),"])
+
   appendEnv('.env', ['DATABASE_URL=postgresql://postgres:postgres@localhost:5432/myapp'])
   appendEnv('.env.example', ['DATABASE_URL=postgresql://postgres:postgres@localhost:5432/myapp'])
 }
 
-function addRedis(scope: string): void {
+function addRedis(): void {
   writeIfNotExists('apps/api/src/utils/redis.ts', `import Redis from 'ioredis'
 import { env } from '../config'
 
@@ -195,16 +209,15 @@ export const redisSubscriber = new Redis(env.REDIS_URL, {
 })
 `)
 
-  if (fs.existsSync('apps/api/package.json')) {
-    addDeps('apps/api/package.json', { ioredis: '^5.9.1' })
-  }
+  addDeps('apps/api/package.json', { ioredis: '^5.9.1' })
+
+  addEnvToConfig(["REDIS_URL: z.string().url(),"])
 
   appendEnv('.env', ['REDIS_URL=redis://localhost:6379'])
   appendEnv('.env.example', ['REDIS_URL=redis://localhost:6379'])
 }
 
 function addRabbitmq(scope: string): void {
-  // API util
   writeIfNotExists('apps/api/src/utils/rabbitmq.ts', `import { Connection } from 'rabbitmq-client'
 import { env } from '../config'
 import { logger } from './logger'
@@ -219,18 +232,19 @@ rabbit.on('error', (err) => {
   logger.error({ err }, 'RabbitMQ connection error')
 })
 
-process.on('SIGINT', async () => { await rabbit.close() })
-process.on('SIGTERM', async () => { await rabbit.close() })
+process.on('SIGINT', async () => {
+  await rabbit.close()
+})
+process.on('SIGTERM', async () => {
+  await rabbit.close()
+})
 `)
 
-  if (fs.existsSync('apps/api/package.json')) {
-    addDeps('apps/api/package.json', { 'rabbitmq-client': '^5.0.0' })
-  }
+  addDeps('apps/api/package.json', { 'rabbitmq-client': '^5.0.0' })
 
-  // Worker
   ensureDir('workers')
 
-  writeIfNotExists('workers/package.json', JSON.stringify({
+  writeIfNotExists('workers/package.json', `${JSON.stringify({
     name: 'workers',
     type: 'module',
     version: '0.0.0',
@@ -254,7 +268,7 @@ process.on('SIGTERM', async () => { await rabbit.close() })
       tsx: '^4.21.0',
       typescript: '^5.8.3',
     },
-  }, null, 2))
+  }, null, 2)}\n`)
 
   writeIfNotExists('workers/example.worker.ts', `import * as Sentry from '@sentry/node'
 import * as schema from '${scope}/db/schema'
@@ -281,8 +295,12 @@ const db = drizzle(client, { schema })
 
 const rabbit = new Connection(process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672')
 
-rabbit.on('connection', () => { logger.info('RabbitMQ connected') })
-rabbit.on('error', (err) => { logger.error({ err }, 'RabbitMQ connection error') })
+rabbit.on('connection', () => {
+  logger.info('RabbitMQ connected')
+})
+rabbit.on('error', (err) => {
+  logger.error({ err }, 'RabbitMQ connection error')
+})
 
 interface ExampleJob {
   userId: string
@@ -307,7 +325,9 @@ const consumer = rabbit.createConsumer({
   }
 })
 
-consumer.on('error', (err) => { logger.error({ err }, 'Consumer error') })
+consumer.on('error', (err) => {
+  logger.error({ err }, 'Consumer error')
+})
 
 logger.info({ queue: QUEUE_NAME }, 'Worker ready, waiting for messages')
 
@@ -320,6 +340,22 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 `)
+
+  writeIfNotExists('workers/tsconfig.json', `${JSON.stringify({
+    compilerOptions: {
+      target: 'ESNext',
+      module: 'ESNext',
+      moduleResolution: 'Bundler',
+      strict: true,
+      noUncheckedIndexedAccess: true,
+      noEmit: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+    },
+    include: ['./**/*.ts'],
+  }, null, 2)}\n`)
+
+  addEnvToConfig(["RABBITMQ_URL: z.string().default('amqp://guest:guest@localhost:5672'),"])
 
   appendEnv('.env', ['RABBITMQ_URL=amqp://guest:guest@localhost:5672'])
   appendEnv('.env.example', ['RABBITMQ_URL=amqp://guest:guest@localhost:5672'])
@@ -363,18 +399,12 @@ export const S3_BUCKET = process.env.S3_BUCKET || 'app'
 
 export async function uploadFile(key: string, body: Buffer | Uint8Array, contentType?: string): Promise<void> {
   await s3Client.send(new PutObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: key,
-    Body: body,
+    Bucket: S3_BUCKET, Key: key, Body: body,
     ContentType: contentType || getMimeType(key),
   }))
 }
 
-export async function getFile(key: string): Promise<{
-  body: NodeJS.ReadableStream
-  contentLength: number
-  contentType: string
-}> {
+export async function getFile(key: string) {
   const response = await s3Client.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }))
   return {
     body: response.Body as NodeJS.ReadableStream,
@@ -383,12 +413,7 @@ export async function getFile(key: string): Promise<{
   }
 }
 
-export async function getFileRange(key: string, range: string): Promise<{
-  body: NodeJS.ReadableStream
-  contentLength: number
-  contentRange: string
-  contentType: string
-}> {
+export async function getFileRange(key: string, range: string) {
   const response = await s3Client.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key, Range: range }))
   return {
     body: response.Body as NodeJS.ReadableStream,
@@ -402,12 +427,9 @@ export async function deleteFile(key: string): Promise<void> {
   await s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }))
 }
 
-export async function headFile(key: string): Promise<{ contentLength: number, contentType: string }> {
+export async function headFile(key: string) {
   const response = await s3Client.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }))
-  return {
-    contentLength: response.ContentLength || 0,
-    contentType: response.ContentType || getMimeType(key),
-  }
+  return { contentLength: response.ContentLength || 0, contentType: response.ContentType || getMimeType(key) }
 }
 
 export async function fileExists(key: string): Promise<boolean> {
@@ -421,9 +443,9 @@ export async function fileExists(key: string): Promise<boolean> {
 }
 `)
 
-  // Add s3 export to shared package.json
   if (fs.existsSync('packages/shared/package.json')) {
     const pkg = readJson('packages/shared/package.json')
+    if (!pkg.exports) pkg.exports = {}
     if (!pkg.exports['./s3']) {
       pkg.exports['./s3'] = './src/s3.ts'
       writeJson('packages/shared/package.json', pkg)
@@ -431,7 +453,6 @@ export async function fileExists(key: string): Promise<boolean> {
     addDeps('packages/shared/package.json', { '@aws-sdk/client-s3': '^3.1023.0' })
   }
 
-  // Storage route for API
   writeIfNotExists('apps/api/src/routes/storage.ts', `import { extname } from 'node:path'
 import { Readable } from 'node:stream'
 import { getFile, getFileRange, getMimeType } from '${scope}/shared/s3'
@@ -448,7 +469,7 @@ storage.get('/*', async (c) => {
   const pathParam = c.req.path.replace('/api/storage/', '')
   if (!pathParam) return c.text('Path is required', 400)
 
-  const normalizedPath = pathParam.replace(/\\\\.\\\\./g, '').replace(/\\\\/+/g, '/')
+  const normalizedPath = pathParam.replace(/\\.\\./g, '').replace(/\\/+/g, '/')
   const ext = extname(normalizedPath).toLowerCase()
   const contentType = getMimeType(normalizedPath)
   const isVideo = ext === '.mp4' || ext === '.webm'
@@ -488,9 +509,18 @@ storage.get('/*', async (c) => {
 export { storage }
 `)
 
-  if (fs.existsSync('apps/api/package.json')) {
-    addDeps('apps/api/package.json', { '@aws-sdk/client-s3': '^3.1023.0' })
-  }
+  addDeps('apps/api/package.json', {
+    '@aws-sdk/client-s3': '^3.1023.0',
+    [`${scope}/shared`]: 'workspace:*',
+  })
+
+  addEnvToConfig([
+    "S3_ENDPOINT: z.string().url(),",
+    "S3_BUCKET: z.string(),",
+    "S3_ACCESS_KEY: z.string(),",
+    "S3_SECRET_KEY: z.string(),",
+    "S3_REGION: z.string().default('us-east-1'),",
+  ])
 
   appendEnv('.env', [
     'S3_ENDPOINT=http://localhost:8333',
@@ -506,4 +536,63 @@ export { storage }
     'S3_SECRET_KEY=admin',
     'S3_REGION=us-east-1',
   ])
+}
+
+function addWebSocket(): void {
+  // WebSocket requires redis
+  if (!fs.existsSync('apps/api/src/utils/redis.ts')) {
+    console.log('  WebSocket requires Redis. Adding Redis first...')
+    addRedis()
+  }
+
+  writeIfNotExists('apps/api/src/routes/ws.ts', `import type { Hono } from 'hono'
+import type { WSContext } from 'hono/ws'
+import { createNodeWebSocket } from '@hono/node-ws'
+import { redisSubscriber } from '../utils/redis'
+
+const WS_CHANNEL = 'ws:events'
+const peers = new Set<WSContext>()
+
+let isSubscribed = false
+
+async function setupRedisSubscription() {
+  if (isSubscribed) return
+  isSubscribed = true
+
+  await redisSubscriber.subscribe(WS_CHANNEL)
+  redisSubscriber.on('message', (channel, message) => {
+    if (channel === WS_CHANNEL) {
+      for (const peer of peers) {
+        peer.send(message)
+      }
+    }
+  })
+}
+
+export function setupWebSocket(app: Hono) {
+  const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app: app as any })
+
+  app.get('/_ws', upgradeWebSocket(() => ({
+    async onOpen(_event, ws) {
+      peers.add(ws)
+      await setupRedisSubscription()
+      ws.send(JSON.stringify({ type: 'connected', peersCount: peers.size }))
+    },
+    onMessage(event, ws) {
+      const data = typeof event.data === 'string' ? event.data : ''
+      if (data === 'ping') ws.send('pong')
+    },
+    onClose(_event, ws) {
+      peers.delete(ws)
+    },
+    onError(_event, ws) {
+      peers.delete(ws)
+    },
+  })))
+
+  return { injectWebSocket }
+}
+`)
+
+  addDeps('apps/api/package.json', { '@hono/node-ws': '^1.1.1' })
 }

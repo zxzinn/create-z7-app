@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { addFeature } from './add.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -12,7 +13,7 @@ interface ScaffoldOptions {
 }
 
 export async function scaffold(options: ScaffoldOptions) {
-  const { projectName, scope, features } = options
+  const { projectName, features } = options
   const targetDir = path.resolve(process.cwd(), projectName)
 
   if (fs.existsSync(targetDir)) {
@@ -26,16 +27,10 @@ export async function scaffold(options: ScaffoldOptions) {
 
   // Always copy base + core packages
   copyTemplate(path.join(templatesDir, 'base'), targetDir, options)
-  copyTemplate(path.join(templatesDir, 'db'), path.join(targetDir, 'packages', 'db'), options)
   copyTemplate(path.join(templatesDir, 'shared'), path.join(targetDir, 'packages', 'shared'), options)
   copyTemplate(path.join(templatesDir, 'api'), path.join(targetDir, 'apps', 'api'), options)
   copyTemplate(path.join(templatesDir, 'frontend'), path.join(targetDir, 'apps', 'frontend'), options)
   copyTemplate(path.join(templatesDir, 'deploy'), path.join(targetDir, 'deploy'), options)
-
-  // Optional features
-  if (features.includes('workers')) {
-    copyTemplate(path.join(templatesDir, 'workers'), path.join(targetDir, 'workers'), options)
-  }
 
   // Copy .env.example → .env
   const envExample = path.join(targetDir, '.env.example')
@@ -49,6 +44,14 @@ export async function scaffold(options: ScaffoldOptions) {
   if (fs.existsSync(startDockerPath)) {
     fs.chmodSync(startDockerPath, 0o755)
   }
+
+  // Add optional features using shared add logic
+  const originalCwd = process.cwd()
+  process.chdir(targetDir)
+  for (const feature of features) {
+    await addFeature(feature)
+  }
+  process.chdir(originalCwd)
 
   // Initialize git (commit happens later in CLI after install)
   if (options.gitInit !== false) {
