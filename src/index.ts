@@ -117,6 +117,10 @@ async function main() {
       execSync('pnpm install', { cwd: targetDir, stdio: 'inherit' })
       p.log.success(`${pc.green('✔')} Successfully installed dependencies!`)
 
+      // Generate initial DB migration from schema
+      execSync('pnpm db:generate', { cwd: targetDir, stdio: 'ignore' })
+      p.log.step(`${pc.green('✔')} Generated initial migration`)
+
       // Generate TanStack Router route tree (needed for IDE type checking)
       execSync('pnpm --filter frontend generate-routes', { cwd: targetDir, stdio: 'ignore' })
       p.log.step(`${pc.green('✔')} Generated route tree`)
@@ -158,7 +162,6 @@ async function main() {
   const steps = [`cd ${projectName}`]
   if (!shouldInstall) steps.push('pnpm install')
   steps.push("Start up your infrastructure, if needed using './start-docker.sh'")
-  steps.push('pnpm db:generate')
   steps.push('pnpm db:migrate')
   steps.push('pnpm dev')
 

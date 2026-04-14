@@ -30,6 +30,7 @@ export async function scaffold(options: ScaffoldOptions) {
   copyTemplate(path.join(templatesDir, 'shared'), path.join(targetDir, 'packages', 'shared'), options)
   copyTemplate(path.join(templatesDir, 'api'), path.join(targetDir, 'apps', 'api'), options)
   copyTemplate(path.join(templatesDir, 'frontend'), path.join(targetDir, 'apps', 'frontend'), options)
+  copyTemplate(path.join(templatesDir, 'deploy'), path.join(targetDir, 'deploy'), options)
 
   // Optional features
   if (features.includes('workers')) {

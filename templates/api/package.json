@@ -12,9 +12,7 @@
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsup src/index.ts --format esm --target node22 --dts",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate --config ../../packages/db/drizzle.config.ts",
-    "db:migrate": "drizzle-kit migrate --config ../../packages/db/drizzle.config.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1023.0",
