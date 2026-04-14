@@ -9,7 +9,7 @@
     }
   },
   "scripts": {
-    "dev": "tsx watch --env-file=.env src/index.ts",
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
     "build": "tsup src/index.ts --format esm --target node22 --dts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"

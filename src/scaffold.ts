@@ -37,6 +37,13 @@ export async function scaffold(options: ScaffoldOptions) {
     copyTemplate(path.join(templatesDir, 'workers'), path.join(targetDir, 'workers'), options)
   }
 
+  // Copy .env.example → .env
+  const envExample = path.join(targetDir, '.env.example')
+  const envFile = path.join(targetDir, '.env')
+  if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
+    fs.copyFileSync(envExample, envFile)
+  }
+
   // Make start-docker.sh executable
   const startDockerPath = path.join(targetDir, 'start-docker.sh')
   if (fs.existsSync(startDockerPath)) {

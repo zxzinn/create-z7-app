@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.api
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/{{projectName}}
       - REDIS_URL=redis://redis:6379
@@ -30,7 +30,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - api
     restart: unless-stopped
@@ -67,7 +67,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [CMD-SHELL, pg_isready -U postgres]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -78,7 +78,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [CMD, redis-cli, ping]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -87,11 +87,11 @@ services:
   rabbitmq:
     image: rabbitmq:4-management-alpine
     ports:
-      - "15672:15672"
+      - '15672:15672'
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      test: [CMD, rabbitmq-diagnostics, check_running]
       interval: 10s
       timeout: 10s
       retries: 5
