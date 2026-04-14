@@ -1,10 +1,11 @@
 {
   "name": "create-z7-app",
   "version": "0.1.0",
-  "description": "Scaffold a full-stack TypeScript monorepo with Hono, Nuxt, oRPC, Drizzle, and more",
+  "description": "Scaffold a full-stack TypeScript monorepo with Hono, React, oRPC, Drizzle, and more",
   "type": "module",
   "bin": {
-    "create-z7-app": "./dist/index.js"
+    "create-z7-app": "./dist/index.js",
+    "z7": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -12,7 +13,7 @@
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm --target node20 --clean",
+    "build": "tsup src/index.ts src/cli.ts --format esm --target node20 --clean",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
@@ -24,6 +25,6 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   },
-  "keywords": ["create", "scaffold", "monorepo", "hono", "nuxt", "orpc", "drizzle", "typescript"],
+  "keywords": ["create", "scaffold", "monorepo", "hono", "react", "orpc", "drizzle", "typescript"],
   "license": "MIT"
 }
