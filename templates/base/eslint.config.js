@@ -17,5 +17,6 @@ export default antfu({
   ],
   rules: {
     'node/prefer-global/process': 'off',
+    'react-refresh/only-export-components': ['warn', { allowExportNames: ['Route'] }],
   },
 })
