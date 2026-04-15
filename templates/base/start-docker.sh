@@ -35,7 +35,7 @@ if [ -n "${DATABASE_URL:-}" ]; then
 fi
 
 PREFIX="{{projectName}}"
-ALL_SERVICES="postgres redis rabbitmq seaweedfs"
+ALL_SERVICES="postgres rabbitmq seaweedfs"
 REQUESTED="${*:-$ALL_SERVICES}"
 
 # Detect docker or podman
@@ -98,6 +98,13 @@ start_service() {
 echo "Starting infrastructure..."
 echo ""
 
+# Redis is always required (cache, pub/sub, WebSocket)
+start_service "${PREFIX}-redis" "$REDIS_PORT" \
+  -p "$REDIS_PORT":6379 \
+  docker.io/redis:8-alpine \
+  redis-server --appendonly yes --appendfsync everysec
+
+# Optional services (pass as arguments, or all by default)
 for service in $REQUESTED; do
   case "$service" in
     postgres)
@@ -107,11 +114,6 @@ for service in $REQUESTED; do
         -e POSTGRES_DB="$DB_NAME" \
         -p "$DB_PORT":5432 \
         docker.io/postgres:18-alpine
-      ;;
-    redis)
-      start_service "${PREFIX}-redis" "$REDIS_PORT" \
-        -p "$REDIS_PORT":6379 \
-        docker.io/redis:8-alpine
       ;;
     rabbitmq)
       start_service "${PREFIX}-rabbitmq" "$RABBITMQ_PORT" \
@@ -127,7 +129,7 @@ for service in $REQUESTED; do
       ;;
     *)
       echo "Unknown service: $service"
-      echo "Available: postgres, redis, rabbitmq, seaweedfs"
+      echo "Available: postgres, rabbitmq, seaweedfs"
       exit 1
       ;;
   esac

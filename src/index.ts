@@ -43,18 +43,12 @@ async function main() {
     process.exit(0)
   }
 
-  // Infrastructure features
+  // Optional infrastructure features (Redis + WebSocket are always included)
   const usePostgres = await p.confirm({
     message: 'Would you like to use PostgreSQL?',
     initialValue: true,
   })
   if (p.isCancel(usePostgres)) { p.cancel('Cancelled.'); process.exit(0) }
-
-  const useRedis = await p.confirm({
-    message: 'Would you like to use Redis?',
-    initialValue: true,
-  })
-  if (p.isCancel(useRedis)) { p.cancel('Cancelled.'); process.exit(0) }
 
   const useRabbitmq = await p.confirm({
     message: 'Would you like to use RabbitMQ?',
@@ -67,12 +61,6 @@ async function main() {
     initialValue: true,
   })
   if (p.isCancel(useS3)) { p.cancel('Cancelled.'); process.exit(0) }
-
-  const useWebSocket = await p.confirm({
-    message: 'Would you like to use WebSocket?',
-    initialValue: true,
-  })
-  if (p.isCancel(useWebSocket)) { p.cancel('Cancelled.'); process.exit(0) }
 
   const shouldInstall = await p.confirm({
     message: `Should we run ${pc.cyan("'pnpm install'")} for you?`,
@@ -89,10 +77,8 @@ async function main() {
   // Build features list
   const features: string[] = []
   if (usePostgres) features.push('postgres')
-  if (useRedis) features.push('redis')
   if (useRabbitmq) features.push('rabbitmq')
   if (useS3) features.push('s3')
-  if (useWebSocket) features.push('websocket')
 
   // Scaffold
   const s = p.spinner()
@@ -115,11 +101,9 @@ async function main() {
 
   // Show what was added
   p.log.success('Adding boilerplate...')
-  const allFeatures = ['React + Vite + TanStack Router', 'oRPC', 'Pino', 'Tailwind', 'Sentry', 'ESLint']
+  const allFeatures = ['React + Vite + TanStack Router', 'oRPC', 'Redis + WebSocket', 'Pino', 'Tailwind', 'Sentry', 'ESLint']
   if (usePostgres) allFeatures.push('PostgreSQL + Drizzle')
-  if (useRedis) allFeatures.push('Redis')
   if (useRabbitmq) allFeatures.push('RabbitMQ Workers')
-  if (useWebSocket) allFeatures.push('WebSocket')
   if (useS3) allFeatures.push('S3 Storage')
   for (const f of allFeatures) {
     p.log.step(`${pc.green('✔')} Successfully setup boilerplate for ${pc.cyan(f)}`)

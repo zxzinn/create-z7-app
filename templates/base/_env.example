@@ -2,6 +2,9 @@
 NODE_ENV=development
 PORT=3001
 
+# Redis
+REDIS_URL=redis://localhost:6379
+
 # Sentry
 SENTRY_DSN=
 VITE_SENTRY_DSN=

@@ -8,10 +8,8 @@ export interface Feature {
 
 export const ADDABLE_FEATURES: Feature[] = [
   { name: 'postgres', description: 'PostgreSQL + Drizzle ORM' },
-  { name: 'redis', description: 'Redis client (ioredis)' },
   { name: 'rabbitmq', description: 'RabbitMQ + worker template (rabbitmq-client)' },
   { name: 's3', description: 'S3-compatible storage (SeaweedFS / MinIO)' },
-  { name: 'websocket', description: 'WebSocket (Redis pub/sub)' },
 ]
 
 function readJson(filePath: string): any {

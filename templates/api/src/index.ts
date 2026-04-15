@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { env } from './config'
 import { rpc } from './routes/rpc'
+import { setupWebSocket } from './routes/ws'
 import { logger } from './utils/logger'
 
 // Sentry
@@ -24,9 +25,13 @@ app.get('/health', (c) => {
 
 app.route('/rpc', rpc)
 
-serve({
+const { injectWebSocket } = setupWebSocket(app)
+
+const server = serve({
   fetch: app.fetch,
   port: env.PORT,
 })
+
+injectWebSocket(server)
 
 logger.info(`API server running on port ${env.PORT}`)
