@@ -1,6 +1,6 @@
 {
   "name": "create-z7-app",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Scaffold a full-stack TypeScript monorepo with Hono, React, oRPC, Drizzle, and more",
   "type": "module",
   "bin": {

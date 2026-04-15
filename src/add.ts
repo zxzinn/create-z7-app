@@ -159,12 +159,22 @@ export default defineConfig({
   }, null, 2)}\n`)
 
   writeIfNotExists('apps/api/src/utils/db.ts', `import * as schema from '${scope}/db/schema'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { env } from '../config'
+import { logger } from './logger'
 
 const client = postgres(env.DATABASE_URL)
 export const db = drizzle(client, { schema })
+
+// Verify connection on startup
+db.execute(sql\`SELECT 1\`)
+  .then(() => logger.info(\`PostgreSQL connected to \${env.DATABASE_URL.replace(/\\/\\/.*@/, '//***@')}\`))
+  .catch((err) => {
+    logger.fatal({ err }, 'PostgreSQL connection failed')
+    process.exit(1)
+  })
 `)
 
   addDeps('apps/api/package.json', {
@@ -223,7 +233,7 @@ import { logger } from './logger'
 export const rabbit = new Connection(env.RABBITMQ_URL)
 
 rabbit.on('connection', () => {
-  logger.info('RabbitMQ connected')
+  logger.info(\`RabbitMQ connected to \${env.RABBITMQ_URL.replace(/\\/\\/.*@/, '//***@')}\`)
 })
 
 rabbit.on('error', (err) => {
