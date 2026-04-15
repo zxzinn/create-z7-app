@@ -170,7 +170,7 @@ export const db = drizzle(client, { schema })
 
 // Verify connection on startup
 db.execute(sql\`SELECT 1\`)
-  .then(() => logger.info(\`PostgreSQL connected to \${env.DATABASE_URL.replace(/\\/\\/.*@/, '//***@')}\`))
+  .then(() => logger.info(\`PostgreSQL connected to \${env.DATABASE_URL}\`))
   .catch((err) => {
     logger.fatal({ err }, 'PostgreSQL connection failed')
     process.exit(1)
@@ -233,7 +233,7 @@ import { logger } from './logger'
 export const rabbit = new Connection(env.RABBITMQ_URL)
 
 rabbit.on('connection', () => {
-  logger.info(\`RabbitMQ connected to \${env.RABBITMQ_URL.replace(/\\/\\/.*@/, '//***@')}\`)
+  logger.info(\`RabbitMQ connected to \${env.RABBITMQ_URL}\`)
 })
 
 rabbit.on('error', (err) => {
@@ -304,7 +304,7 @@ const db = drizzle(client, { schema })
 const rabbit = new Connection(process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672')
 
 rabbit.on('connection', () => {
-  logger.info('RabbitMQ connected')
+  logger.info(\`RabbitMQ connected to \${process.env.RABBITMQ_URL}\`)
 })
 rabbit.on('error', (err) => {
   logger.error({ err }, 'RabbitMQ connection error')
