@@ -22,10 +22,8 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - run: npm install -g npm@latest
-
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build
 
-      - run: npm publish --provenance --access public
+      - run: npx npm@latest publish --provenance --access public
